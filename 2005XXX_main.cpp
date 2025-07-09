@@ -303,6 +303,27 @@ void display() {
     glutSwapBuffers();
 }
 
+// Helper function to update camera vectors after rotation (preserving tilt)
+void updateCameraVectorsWithTilt() {
+    // Normalize the look direction
+    double length = sqrt(cameraLookDir.x * cameraLookDir.x + cameraLookDir.y * cameraLookDir.y + cameraLookDir.z * cameraLookDir.z);
+    cameraLookDir.x /= length;
+    cameraLookDir.y /= length;
+    cameraLookDir.z /= length;
+    
+    // Normalize right vector
+    length = sqrt(cameraRight.x * cameraRight.x + cameraRight.y * cameraRight.y + cameraRight.z * cameraRight.z);
+    cameraRight.x /= length;
+    cameraRight.y /= length;
+    cameraRight.z /= length;
+    
+    // Normalize up vector
+    length = sqrt(cameraUp.x * cameraUp.x + cameraUp.y * cameraUp.y + cameraUp.z * cameraUp.z);
+    cameraUp.x /= length;
+    cameraUp.y /= length;
+    cameraUp.z /= length;
+}
+
 // Helper function to update camera vectors after rotation
 void updateCameraVectors() {
     // Normalize the look direction
@@ -330,13 +351,13 @@ void updateCameraVectors() {
 }
 
 void keyboardListener(unsigned char key, int x, int y) {
-    const double rotateSpeed = 0.1;
+    const double ROTATE_SPEED = 0.1;
     
     switch (key) {
         case '1': // Rotate/Look left
             {
-                double cosAngle = cos(-rotateSpeed);
-                double sinAngle = sin(-rotateSpeed);
+                double cosAngle = cos(-ROTATE_SPEED);
+                double sinAngle = sin(-ROTATE_SPEED);
                 double newX = cameraLookDir.x * cosAngle - cameraLookDir.y * sinAngle;
                 double newY = cameraLookDir.x * sinAngle + cameraLookDir.y * cosAngle;
                 cameraLookDir.x = newX;
@@ -346,8 +367,8 @@ void keyboardListener(unsigned char key, int x, int y) {
             break;
         case '2': // Rotate/Look right
             {
-                double cosAngle = cos(rotateSpeed);
-                double sinAngle = sin(rotateSpeed);
+                double cosAngle = cos(ROTATE_SPEED);
+                double sinAngle = sin(ROTATE_SPEED);
                 double newX = cameraLookDir.x * cosAngle - cameraLookDir.y * sinAngle;
                 double newY = cameraLookDir.x * sinAngle + cameraLookDir.y * cosAngle;
                 cameraLookDir.x = newX;
@@ -357,7 +378,7 @@ void keyboardListener(unsigned char key, int x, int y) {
             break;
         case '3': // Look up
             {
-                Vector3D temp = cameraLookDir + cameraUp * rotateSpeed;
+                Vector3D temp = cameraLookDir + cameraUp * ROTATE_SPEED;
                 double length = sqrt(temp.x * temp.x + temp.y * temp.y + temp.z * temp.z);
                 cameraLookDir.x = temp.x / length;
                 cameraLookDir.y = temp.y / length;
@@ -367,7 +388,7 @@ void keyboardListener(unsigned char key, int x, int y) {
             break;
         case '4': // Look down
             {
-                Vector3D temp = cameraLookDir - cameraUp * rotateSpeed;
+                Vector3D temp = cameraLookDir - cameraUp * ROTATE_SPEED;
                 double length = sqrt(temp.x * temp.x + temp.y * temp.y + temp.z * temp.z);
                 cameraLookDir.x = temp.x / length;
                 cameraLookDir.y = temp.y / length;
@@ -375,13 +396,25 @@ void keyboardListener(unsigned char key, int x, int y) {
                 updateCameraVectors();
             }
             break;
-        case '5': // Tilt Clockwise
-            cameraTilt += rotateSpeed;
-            updateCameraVectors();
+        case '5':  // Tilt clockwise (roll right)
+            {
+                // Rotate around the look vector (roll)
+                Vector3D newUp = cameraUp * cos(-ROTATE_SPEED) + cameraRight * sin(-ROTATE_SPEED);
+                Vector3D newRight = cameraRight * cos(-ROTATE_SPEED) - cameraUp * sin(-ROTATE_SPEED);
+                cameraUp = newUp;
+                cameraRight = newRight;
+                updateCameraVectorsWithTilt(); // Use the tilt-preserving function
+            }
             break;
-        case '6': // Tilt Counterclockwise
-            cameraTilt -= rotateSpeed;
-            updateCameraVectors();
+        case '6':  // Tilt counterclockwise (roll left)
+            {
+                // Rotate around the look vector (roll)
+                Vector3D newUp = cameraUp * cos(ROTATE_SPEED) + cameraRight * sin(ROTATE_SPEED);
+                Vector3D newRight = cameraRight * cos(ROTATE_SPEED) - cameraUp * sin(ROTATE_SPEED);
+                cameraUp = newUp;
+                cameraRight = newRight;
+                updateCameraVectorsWithTilt(); // Use the tilt-preserving function
+            }
             break;
         case '0':
             capture(); // Capture image
