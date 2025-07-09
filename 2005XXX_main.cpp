@@ -19,12 +19,6 @@ float cameraAngle = 0.0;
 float cameraHeight = 200.0;
 float cameraRadius = 500.0;
 
-// Additional camera variables for full control
-Vector3D eye(0, -500, 200);
-Vector3D l(0, 1, 0);  // Look direction
-Vector3D r(1, 0, 0);  // Right direction
-Vector3D u(0, 0, 1);  // Up direction
-
 void loadData() {
     ifstream sceneFile("scene.txt");
     if (!sceneFile.is_open()) {
@@ -178,30 +172,47 @@ void capture() {
     bitmap_image image(imageWidth, imageHeight);
     image.clear();
 
-    // Use the current camera position and orientation
+    // Use the SAME camera position and orientation as OpenGL display
     Vector3D eye(cameraRadius * cos(cameraAngle), cameraRadius * sin(cameraAngle), cameraHeight);
-    Vector3D l(-cos(cameraAngle), -sin(cameraAngle), 0); // Look direction
-    Vector3D r(-sin(cameraAngle), cos(cameraAngle), 0);  // Right direction
-    Vector3D u(0, 0, 1);  // Up direction
-
-    // Calculate viewing window parameters
-    double windowWidth = imageWidth;
-    double windowHeight = imageHeight;
-    double viewAngle = 70.0 * M_PI / 180.0; // 70 degrees in radians
+    Vector3D target(0, 0, 0); // Looking at origin (same as gluLookAt)
+    Vector3D up(0, 0, 1);     // Up vector (same as gluLookAt)
     
-    double planeDistance = (windowHeight / 2.0) / tan(viewAngle / 2.0);
-    Vector3D topLeft = eye + l * planeDistance - r * (windowWidth / 2.0) + u * (windowHeight / 2.0);
+    // Calculate camera coordinate system (same as OpenGL)
+    Vector3D l = target - eye; // Look direction
+    double lookLength = sqrt(l.x * l.x + l.y * l.y + l.z * l.z);
+    l.x /= lookLength; l.y /= lookLength; l.z /= lookLength; // Normalize
+    
+    // Right vector = look × up
+    Vector3D r(l.y * up.z - l.z * up.y, l.z * up.x - l.x * up.z, l.x * up.y - l.y * up.x);
+    double rightLength = sqrt(r.x * r.x + r.y * r.y + r.z * r.z);
+    r.x /= rightLength; r.y /= rightLength; r.z /= rightLength; // Normalize
+    
+    // Up vector = right × look
+    Vector3D u(r.y * l.z - r.z * l.y, r.z * l.x - r.x * l.z, r.x * l.y - r.y * l.x);
 
-    double du = windowWidth / (double)imageWidth;
-    double dv = windowHeight / (double)imageHeight;
-
-    // Choose middle of the grid cell
-    topLeft = topLeft + r * (0.5 * du) - u * (0.5 * dv);
+    // Calculate viewing frustum parameters (matching gluPerspective(70, 1, 0.1, 10000))
+    double fov = 70.0 * M_PI / 180.0; // 70 degrees FOV
+    double aspect = 1.0; // Square aspect ratio
+    double nearPlane = 1.0; // Distance to viewing plane
+    
+    double halfHeight = nearPlane * tan(fov / 2.0);
+    double halfWidth = halfHeight * aspect;
+    
+    // Calculate the corners of the viewing plane
+    Vector3D center = eye + l * nearPlane;
+    Vector3D topLeft = center + u * halfHeight - r * halfWidth;
+    
+    // Calculate pixel step sizes
+    double pixelWidth = (2.0 * halfWidth) / imageWidth;
+    double pixelHeight = (2.0 * halfHeight) / imageHeight;
 
     for (int i = 0; i < imageWidth; i++) {
         for (int j = 0; j < imageHeight; j++) {
-            Vector3D curPixel = topLeft + r * (i * du) - u * (j * dv);
-            Vector3D rayDir = curPixel - eye;
+            // Calculate current pixel position on the viewing plane
+            Vector3D pixelPos = topLeft + r * (i * pixelWidth) - u * (j * pixelHeight);
+            
+            // Ray from eye through pixel
+            Vector3D rayDir = pixelPos - eye;
             Ray ray(eye, rayDir);
 
             double tMin = 1e9;
@@ -345,32 +356,28 @@ void keyboardListener(unsigned char key, int x, int y) {
 void specialKeyListener(int key, int x, int y) {
     switch (key) {
         case GLUT_KEY_UP:
-            // Move forward
-            eye.x += 10 * cos(cameraAngle);
-            eye.y += 10 * sin(cameraAngle);
+            // Move camera closer (decrease radius)
+            cameraRadius -= 10;
             break;
         case GLUT_KEY_DOWN:
-            // Move backward
-            eye.x -= 10 * cos(cameraAngle);
-            eye.y -= 10 * sin(cameraAngle);
+            // Move camera farther (increase radius)
+            cameraRadius += 10;
             break;
         case GLUT_KEY_LEFT:
-            // Move left
-            eye.x -= 10 * sin(cameraAngle);
-            eye.y += 10 * cos(cameraAngle);
+            // Rotate camera left
+            cameraAngle -= 0.1;
             break;
         case GLUT_KEY_RIGHT:
-            // Move right
-            eye.x += 10 * sin(cameraAngle);
-            eye.y -= 10 * cos(cameraAngle);
+            // Rotate camera right
+            cameraAngle += 0.1;
             break;
         case GLUT_KEY_PAGE_UP:
-            // Move up
-            eye.z += 10;
+            // Move camera up
+            cameraHeight += 10;
             break;
         case GLUT_KEY_PAGE_DOWN:
-            // Move down
-            eye.z -= 10;
+            // Move camera down
+            cameraHeight -= 10;
             break;
         default:
             break;
