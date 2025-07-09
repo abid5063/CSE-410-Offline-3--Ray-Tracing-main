@@ -14,10 +14,12 @@ vector<SpotLight> spotLights;
 
 int recursionLevel; // Define recursionLevel in the main file
 
-// Camera variables
-float cameraAngle = 0.0;
-float cameraHeight = 200.0;
-float cameraRadius = 500.0;
+// Camera variables - Free movement camera system
+Vector3D cameraPos(0, -500, 200);  // Camera position
+Vector3D cameraLookDir(0, 1, 0);   // Look direction (normalized)
+Vector3D cameraUp(0, 0, 1);        // Up direction
+Vector3D cameraRight(1, 0, 0);     // Right direction
+float cameraTilt = 0.0;             // Camera tilt angle
 
 void loadData() {
     ifstream sceneFile("scene.txt");
@@ -173,22 +175,13 @@ void capture() {
     image.clear();
 
     // Use the SAME camera position and orientation as OpenGL display
-    Vector3D eye(cameraRadius * cos(cameraAngle), cameraRadius * sin(cameraAngle), cameraHeight);
-    Vector3D target(0, 0, 0); // Looking at origin (same as gluLookAt)
-    Vector3D up(0, 0, 1);     // Up vector (same as gluLookAt)
+    Vector3D eye = cameraPos;
+    Vector3D target = cameraPos + cameraLookDir;
     
     // Calculate camera coordinate system (same as OpenGL)
-    Vector3D l = target - eye; // Look direction
-    double lookLength = sqrt(l.x * l.x + l.y * l.y + l.z * l.z);
-    l.x /= lookLength; l.y /= lookLength; l.z /= lookLength; // Normalize
-    
-    // Right vector = look × up
-    Vector3D r(l.y * up.z - l.z * up.y, l.z * up.x - l.x * up.z, l.x * up.y - l.y * up.x);
-    double rightLength = sqrt(r.x * r.x + r.y * r.y + r.z * r.z);
-    r.x /= rightLength; r.y /= rightLength; r.z /= rightLength; // Normalize
-    
-    // Up vector = right × look
-    Vector3D u(r.y * l.z - r.z * l.y, r.z * l.x - r.x * l.z, r.x * l.y - r.y * l.x);
+    Vector3D l = cameraLookDir; // Already normalized look direction
+    Vector3D r = cameraRight;   // Already normalized right direction  
+    Vector3D u = cameraUp;      // Already normalized up direction
 
     // Calculate viewing frustum parameters (matching gluPerspective(70, 1, 0.1, 10000))
     double fov = 70.0 * M_PI / 180.0; // 70 degrees FOV
@@ -291,9 +284,11 @@ void display() {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    // Set camera position
-    gluLookAt(cameraRadius * cos(cameraAngle), cameraRadius * sin(cameraAngle), cameraHeight,
-              0, 0, 0, 0, 0, 1);
+    // Set camera position using free-movement camera system
+    Vector3D target = cameraPos + cameraLookDir;
+    gluLookAt(cameraPos.x, cameraPos.y, cameraPos.z,
+              target.x, target.y, target.z,
+              cameraUp.x, cameraUp.y, cameraUp.z);
 
     drawAxes();
 
@@ -308,43 +303,91 @@ void display() {
     glutSwapBuffers();
 }
 
+// Helper function to update camera vectors after rotation
+void updateCameraVectors() {
+    // Normalize the look direction
+    double length = sqrt(cameraLookDir.x * cameraLookDir.x + cameraLookDir.y * cameraLookDir.y + cameraLookDir.z * cameraLookDir.z);
+    cameraLookDir.x /= length;
+    cameraLookDir.y /= length;
+    cameraLookDir.z /= length;
+    
+    // Calculate right vector = lookDir × worldUp
+    Vector3D worldUp(0, 0, 1);
+    cameraRight.x = cameraLookDir.y * worldUp.z - cameraLookDir.z * worldUp.y;
+    cameraRight.y = cameraLookDir.z * worldUp.x - cameraLookDir.x * worldUp.z;
+    cameraRight.z = cameraLookDir.x * worldUp.y - cameraLookDir.y * worldUp.x;
+    
+    // Normalize right vector
+    length = sqrt(cameraRight.x * cameraRight.x + cameraRight.y * cameraRight.y + cameraRight.z * cameraRight.z);
+    cameraRight.x /= length;
+    cameraRight.y /= length;
+    cameraRight.z /= length;
+    
+    // Calculate up vector = right × lookDir
+    cameraUp.x = cameraRight.y * cameraLookDir.z - cameraRight.z * cameraLookDir.y;
+    cameraUp.y = cameraRight.z * cameraLookDir.x - cameraRight.x * cameraLookDir.z;
+    cameraUp.z = cameraRight.x * cameraLookDir.y - cameraRight.y * cameraLookDir.x;
+}
+
 void keyboardListener(unsigned char key, int x, int y) {
+    const double rotateSpeed = 0.1;
+    
     switch (key) {
-        case 'w':
-            cameraHeight += 10;
+        case '1': // Rotate/Look left
+            {
+                double cosAngle = cos(-rotateSpeed);
+                double sinAngle = sin(-rotateSpeed);
+                double newX = cameraLookDir.x * cosAngle - cameraLookDir.y * sinAngle;
+                double newY = cameraLookDir.x * sinAngle + cameraLookDir.y * cosAngle;
+                cameraLookDir.x = newX;
+                cameraLookDir.y = newY;
+                updateCameraVectors();
+            }
             break;
-        case 's':
-            cameraHeight -= 10;
+        case '2': // Rotate/Look right
+            {
+                double cosAngle = cos(rotateSpeed);
+                double sinAngle = sin(rotateSpeed);
+                double newX = cameraLookDir.x * cosAngle - cameraLookDir.y * sinAngle;
+                double newY = cameraLookDir.x * sinAngle + cameraLookDir.y * cosAngle;
+                cameraLookDir.x = newX;
+                cameraLookDir.y = newY;
+                updateCameraVectors();
+            }
             break;
-        case 'a':
-            cameraAngle -= 0.1;
+        case '3': // Look up
+            {
+                Vector3D temp = cameraLookDir + cameraUp * rotateSpeed;
+                double length = sqrt(temp.x * temp.x + temp.y * temp.y + temp.z * temp.z);
+                cameraLookDir.x = temp.x / length;
+                cameraLookDir.y = temp.y / length;
+                cameraLookDir.z = temp.z / length;
+                updateCameraVectors();
+            }
             break;
-        case 'd':
-            cameraAngle += 0.1;
+        case '4': // Look down
+            {
+                Vector3D temp = cameraLookDir - cameraUp * rotateSpeed;
+                double length = sqrt(temp.x * temp.x + temp.y * temp.y + temp.z * temp.z);
+                cameraLookDir.x = temp.x / length;
+                cameraLookDir.y = temp.y / length;
+                cameraLookDir.z = temp.z / length;
+                updateCameraVectors();
+            }
             break;
-        case 'c':
-            capture();
+        case '5': // Tilt Clockwise
+            cameraTilt += rotateSpeed;
+            updateCameraVectors();
             break;
-        case '1':
-            cameraAngle -= 0.1; // Rotate left
-            break;
-        case '2':
-            cameraAngle += 0.1; // Rotate right
-            break;
-        case '3':
-            cameraHeight += 10; // Look up
-            break;
-        case '4':
-            cameraHeight -= 10; // Look down
-            break;
-        case '5':
-            cameraRadius -= 10; // Tilt clockwise
-            break;
-        case '6':
-            cameraRadius += 10; // Tilt counter-clockwise
+        case '6': // Tilt Counterclockwise
+            cameraTilt -= rotateSpeed;
+            updateCameraVectors();
             break;
         case '0':
             capture(); // Capture image
+            break;
+        case 'c':
+            capture(); // Alternative capture
             break;
         default:
             break;
@@ -352,32 +395,34 @@ void keyboardListener(unsigned char key, int x, int y) {
     glutPostRedisplay();
 }
 
-// Add special key handler for arrow keys and PageUp/PageDown
+// Special key handler for arrow keys and PageUp/PageDown - Fixed to match exact specifications
 void specialKeyListener(int key, int x, int y) {
+    const double moveSpeed = 20.0;
+    
     switch (key) {
         case GLUT_KEY_UP:
-            // Move camera closer (decrease radius)
-            cameraRadius -= 10;
+            // Move forward (in look direction)
+            cameraPos = cameraPos + cameraLookDir * moveSpeed;
             break;
         case GLUT_KEY_DOWN:
-            // Move camera farther (increase radius)
-            cameraRadius += 10;
+            // Move backward (opposite look direction)
+            cameraPos = cameraPos - cameraLookDir * moveSpeed;
             break;
         case GLUT_KEY_LEFT:
-            // Rotate camera left
-            cameraAngle -= 0.1;
+            // Move left (opposite right direction)
+            cameraPos = cameraPos - cameraRight * moveSpeed;
             break;
         case GLUT_KEY_RIGHT:
-            // Rotate camera right
-            cameraAngle += 0.1;
+            // Move right (in right direction)
+            cameraPos = cameraPos + cameraRight * moveSpeed;
             break;
         case GLUT_KEY_PAGE_UP:
-            // Move camera up
-            cameraHeight += 10;
+            // Move up (increase Z coordinate)
+            cameraPos.z += moveSpeed;
             break;
         case GLUT_KEY_PAGE_DOWN:
-            // Move camera down
-            cameraHeight -= 10;
+            // Move down (decrease Z coordinate)
+            cameraPos.z -= moveSpeed;
             break;
         default:
             break;
