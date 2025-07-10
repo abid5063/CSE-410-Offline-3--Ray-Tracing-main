@@ -423,57 +423,110 @@ public:
         this->tileWidth = tileWidth;
         this->useTexture = false; // Default to checkerboard
 
-        // Generate procedural texture instead of loading from file
-        generateProceduralTexture();
+        // Load the actual texture2.bmp file
+        loadTextureFromFile();
     }
 
-    // Generate a procedural wood-like texture
-    void generateProceduralTexture() {
-        textureWidth = 256;
-        textureHeight = 256;
+    // Load texture2.bmp and prepare for tiling
+    void loadTextureFromFile() {
+        // Try to load texture2.bmp
+        textureData = stbi_load("texture2.bmp", &textureWidth, &textureHeight, &textureChannels, 0);
+        
+        if (!textureData) {
+            std::cerr << "Warning: Could not load texture2.bmp, generating fallback texture" << std::endl;
+            generateFallbackTexture();
+        } else {
+            std::cout << "Successfully loaded texture2.bmp (" << textureWidth << "x" << textureHeight << ", " << textureChannels << " channels)" << std::endl;
+        }
+    }
+
+    // Generate a fallback texture if texture2.bmp is not found
+    void generateFallbackTexture() {
+        textureWidth = 512;
+        textureHeight = 512;
         textureChannels = 3;
         
         // Allocate memory for texture data
         textureData = new unsigned char[textureWidth * textureHeight * textureChannels];
         
+        // Create a simple brick pattern as fallback
         for (int y = 0; y < textureHeight; y++) {
             for (int x = 0; x < textureWidth; x++) {
                 int index = (y * textureWidth + x) * textureChannels;
                 
-                // Create wood-like pattern using sine waves
-                double u = (double)x / textureWidth;
-                double v = (double)y / textureHeight;
+                // Create brick pattern
+                int brickWidth = 64;
+                int brickHeight = 32;
+                int mortarWidth = 4;
                 
-                // Base wood grain pattern
-                double grain = sin(u * 20.0) * 0.1 + sin(v * 40.0) * 0.05;
-                double rings = sin(sqrt((u - 0.5) * (u - 0.5) + (v - 0.5) * (v - 0.5)) * 30.0) * 0.2;
+                int brickX = x % (brickWidth + mortarWidth);
+                int brickY = y % (brickHeight + mortarWidth);
                 
-                // Wood color variations
-                double baseR = 0.6 + grain + rings;
-                double baseG = 0.4 + grain * 0.8 + rings * 0.5;
-                double baseB = 0.2 + grain * 0.3 + rings * 0.3;
+                // Offset every other row
+                if ((y / (brickHeight + mortarWidth)) % 2 == 1) {
+                    brickX = (x + brickWidth / 2) % (brickWidth + mortarWidth);
+                }
                 
-                // Add some noise for realism
-                double noise = (sin(u * 100.0) + sin(v * 100.0)) * 0.05;
+                bool isMortar = (brickX >= brickWidth) || (brickY >= brickHeight);
                 
-                // Clamp values to [0, 1] range
-                baseR = std::max(0.0, std::min(1.0, baseR + noise));
-                baseG = std::max(0.0, std::min(1.0, baseG + noise));
-                baseB = std::max(0.0, std::min(1.0, baseB + noise));
-                
-                // Convert to 0-255 range
-                textureData[index] = (unsigned char)(baseR * 255);
-                textureData[index + 1] = (unsigned char)(baseG * 255);
-                textureData[index + 2] = (unsigned char)(baseB * 255);
+                if (isMortar) {
+                    // Light gray mortar
+                    textureData[index] = 200;
+                    textureData[index + 1] = 200;
+                    textureData[index + 2] = 200;
+                } else {
+                    // Reddish brown brick with variation
+                    double noise = sin(x * 0.1) * cos(y * 0.1) * 20;
+                    textureData[index] = (unsigned char)std::max(0, std::min(255, (int)(150 + noise)));
+                    textureData[index + 1] = (unsigned char)std::max(0, std::min(255, (int)(80 + noise * 0.5)));
+                    textureData[index + 2] = (unsigned char)std::max(0, std::min(255, (int)(60 + noise * 0.3)));
+                }
             }
         }
     }
 
-    // Sample texture at UV coordinates (u, v) in range [0, 1]
+    // Helper function to convert HSV to RGB
+    void hsvToRgb(double h, double s, double v, double& r, double& g, double& b) {
+        double c = v * s;
+        double x = c * (1 - abs(fmod(h / 60.0, 2) - 1));
+        double m = v - c;
+        
+        if (h >= 0 && h < 60) {
+            r = c; g = x; b = 0;
+        } else if (h >= 60 && h < 120) {
+            r = x; g = c; b = 0;
+        } else if (h >= 120 && h < 180) {
+            r = 0; g = c; b = x;
+        } else if (h >= 180 && h < 240) {
+            r = 0; g = x; b = c;
+        } else if (h >= 240 && h < 300) {
+            r = x; g = 0; b = c;
+        } else {
+            r = c; g = 0; b = x;
+        }
+        
+        r += m;
+        g += m;
+        b += m;
+    }
+
+    // Sample texture at UV coordinates (u, v) in range [0, 1] with tiling
     Vector3D sampleTexture(double u, double v) {
         if (!textureData || textureWidth <= 0 || textureHeight <= 0) {
             return Vector3D(0.5, 0.5, 0.5); // Gray fallback
         }
+
+        // Create tiling by using modulo operation
+        // Determine how many times we want to tile the texture across the floor
+        double tilesPerFloor = 10.0; // Number of texture repetitions across the floor
+        
+        // Apply tiling by taking fractional part
+        u = fmod(u * tilesPerFloor, 1.0);
+        v = fmod(v * tilesPerFloor, 1.0);
+        
+        // Ensure positive values
+        if (u < 0) u += 1.0;
+        if (v < 0) v += 1.0;
 
         // Clamp u and v to [0, 1]
         u = std::max(0.0, std::min(1.0, u));
@@ -521,11 +574,11 @@ public:
         for (double x = -floorWidth / 2; x < floorWidth / 2; x += tileWidth) {
             for (double y = -floorWidth / 2; y < floorWidth / 2; y += tileWidth) {
                 if (useTexture && textureData) {
-                    // Use the same UV calculation as in intersect method
+                    // Use the same UV calculation and tiling as in intersect method
                     double u = (x + floorWidth / 2) / floorWidth;
                     double v = (y + floorWidth / 2) / floorWidth;
                     
-                    // Sample texture using the improved method
+                    // Sample texture with tiling
                     Vector3D texColor = sampleTexture(u, v);
                     glColor3f(texColor.x, texColor.y, texColor.z);
                 } else {
@@ -860,7 +913,7 @@ public:
         Object* nearestObject = nullptr;
 
         for (const auto& obj : objects) {
-            double t = obj->intersect(&reflectedRay, reflectedColor, 0);
+            double t = obj->intersect(&reflectedRay, reflectedColor, level + 1);
             if (t > 0 && t < tMin) {
                 tMin = t;
                 nearestObject = obj;
