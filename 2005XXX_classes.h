@@ -739,7 +739,7 @@ public:
             lightDir.z /= lightDist;
 
             // Check spotlight cutoff angle
-            double cosTheta = lightDir.x * light.light_direction.x + lightDir.y * light.light_direction.y + lightDir.z * light.light_direction.z;
+            double cosTheta = -(lightDir.x * light.light_direction.x + lightDir.y * light.light_direction.y + lightDir.z * light.light_direction.z);
             if (acos(cosTheta) * 180.0 / M_PI > light.cutoff_angle) continue;
 
             // Check for shadows
@@ -767,6 +767,32 @@ public:
             color[0] += coEfficients[2] * light.color[0] * phong;
             color[1] += coEfficients[2] * light.color[1] * phong;
             color[2] += coEfficients[2] * light.color[2] * phong;
+        }
+
+        if (level >= recursionLevel) return t;
+
+        // Compute reflection ray
+        Vector3D reflectDir = ray->dir - normal * (2.0 * (ray->dir.x * normal.x + ray->dir.y * normal.y + ray->dir.z * normal.z));
+        Ray reflectedRay(intersectionPoint + reflectDir * 1e-6, reflectDir);
+
+        // Trace the reflected ray
+        double reflectedColor[3] = {0, 0, 0};
+        double tMin = 1e9;
+        Object* nearestObject = nullptr;
+
+        for (const auto& obj : objects) {
+            double t = obj->intersect(&reflectedRay, reflectedColor, level + 1);
+            if (t > 0 && t < tMin) {
+                tMin = t;
+                nearestObject = obj;
+            }
+        }
+
+        if (nearestObject) {
+            nearestObject->intersect(&reflectedRay, reflectedColor, level + 1);
+            color[0] += reflectedColor[0] * coEfficients[3];
+            color[1] += reflectedColor[1] * coEfficients[3];
+            color[2] += reflectedColor[2] * coEfficients[3];
         }
 
         return t;
