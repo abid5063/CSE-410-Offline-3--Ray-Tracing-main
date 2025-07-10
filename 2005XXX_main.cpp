@@ -11,6 +11,7 @@ using namespace std;
 vector<Object*> objects;
 vector<PointLight> pointLights;
 vector<SpotLight> spotLights;
+Floor* globalFloor = nullptr; // Global reference to floor for texture toggling
 
 int recursionLevel; // Define recursionLevel in the main file
 
@@ -166,6 +167,7 @@ void loadData() {
     floor->setCoEfficients(0.4, 0.2, 0.2, 0.2);
     floor->setShine(1);
     objects.push_back(floor);
+    globalFloor = floor; // Set global floor reference
 }
 
 void capture() {
@@ -421,6 +423,12 @@ void keyboardListener(unsigned char key, int x, int y) {
             break;
         case 'c':
             capture(); // Alternative capture
+            break;
+        case 't':
+            if (globalFloor) {
+                globalFloor->toggleTexture();
+                cout << "Floor texture toggled. Current mode: " << (globalFloor->useTexture ? "Texture" : "Checkerboard") << endl;
+            }
             break;
         default:
             break;

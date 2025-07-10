@@ -99,6 +99,7 @@ public:
 extern std::vector<PointLight> pointLights;
 extern std::vector<SpotLight> spotLights;
 extern std::vector<Object*> objects;
+extern class Floor* globalFloor; // Global reference to floor for texture toggling
 
 // Declare extern variable for recursionLevel
 extern int recursionLevel;
@@ -417,16 +418,98 @@ public:
     unsigned char* textureData;
     int textureWidth, textureHeight, textureChannels;
 
-    Floor(double floorWidth, double tileWidth, const std::string& textureFile) {
+    Floor(double floorWidth, double tileWidth, const std::string& textureFile = "") {
         this->floorWidth = floorWidth;
         this->tileWidth = tileWidth;
         this->useTexture = false; // Default to checkerboard
 
-        // Load texture
-        textureData = stbi_load(textureFile.c_str(), &textureWidth, &textureHeight, &textureChannels, 0);
-        if (!textureData) {
-            std::cerr << "Error: Could not load texture file " << textureFile << std::endl;
+        // Generate procedural texture instead of loading from file
+        generateProceduralTexture();
+    }
+
+    // Generate a procedural wood-like texture
+    void generateProceduralTexture() {
+        textureWidth = 256;
+        textureHeight = 256;
+        textureChannels = 3;
+        
+        // Allocate memory for texture data
+        textureData = new unsigned char[textureWidth * textureHeight * textureChannels];
+        
+        for (int y = 0; y < textureHeight; y++) {
+            for (int x = 0; x < textureWidth; x++) {
+                int index = (y * textureWidth + x) * textureChannels;
+                
+                // Create wood-like pattern using sine waves
+                double u = (double)x / textureWidth;
+                double v = (double)y / textureHeight;
+                
+                // Base wood grain pattern
+                double grain = sin(u * 20.0) * 0.1 + sin(v * 40.0) * 0.05;
+                double rings = sin(sqrt((u - 0.5) * (u - 0.5) + (v - 0.5) * (v - 0.5)) * 30.0) * 0.2;
+                
+                // Wood color variations
+                double baseR = 0.6 + grain + rings;
+                double baseG = 0.4 + grain * 0.8 + rings * 0.5;
+                double baseB = 0.2 + grain * 0.3 + rings * 0.3;
+                
+                // Add some noise for realism
+                double noise = (sin(u * 100.0) + sin(v * 100.0)) * 0.05;
+                
+                // Clamp values to [0, 1] range
+                baseR = std::max(0.0, std::min(1.0, baseR + noise));
+                baseG = std::max(0.0, std::min(1.0, baseG + noise));
+                baseB = std::max(0.0, std::min(1.0, baseB + noise));
+                
+                // Convert to 0-255 range
+                textureData[index] = (unsigned char)(baseR * 255);
+                textureData[index + 1] = (unsigned char)(baseG * 255);
+                textureData[index + 2] = (unsigned char)(baseB * 255);
+            }
         }
+    }
+
+    // Sample texture at UV coordinates (u, v) in range [0, 1]
+    Vector3D sampleTexture(double u, double v) {
+        if (!textureData || textureWidth <= 0 || textureHeight <= 0) {
+            return Vector3D(0.5, 0.5, 0.5); // Gray fallback
+        }
+
+        // Clamp u and v to [0, 1]
+        u = std::max(0.0, std::min(1.0, u));
+        v = std::max(0.0, std::min(1.0, v));
+
+        // Normalized -> pixel coords
+        int pixel_x = (int)(u * (textureWidth - 1));
+        int pixel_y = (int)((1.0 - v) * (textureHeight - 1)); // Flip Y
+
+        // Safety clamp
+        pixel_x = std::max(0, std::min(textureWidth - 1, pixel_x));
+        pixel_y = std::max(0, std::min(textureHeight - 1, pixel_y));
+
+        // Compute array index
+        int index = (pixel_y * textureWidth + pixel_x) * textureChannels;
+        int max_index = textureWidth * textureHeight * textureChannels;
+        if (index < 0 || index + 2 >= max_index) {
+            return Vector3D(1.0, 0.0, 1.0); // Magenta = error
+        }
+
+        Vector3D color;
+        color.x = textureData[index] / 255.0;
+
+        if (textureChannels >= 2) {
+            color.y = textureData[index + 1] / 255.0;
+        } else {
+            color.y = color.x; // Grayscale
+        }
+
+        if (textureChannels >= 3) {
+            color.z = textureData[index + 2] / 255.0;
+        } else {
+            color.z = color.x; // Grayscale
+        }
+
+        return color;
     }
 
     void toggleTexture() {
@@ -438,14 +521,13 @@ public:
         for (double x = -floorWidth / 2; x < floorWidth / 2; x += tileWidth) {
             for (double y = -floorWidth / 2; y < floorWidth / 2; y += tileWidth) {
                 if (useTexture && textureData) {
+                    // Use the same UV calculation as in intersect method
                     double u = (x + floorWidth / 2) / floorWidth;
                     double v = (y + floorWidth / 2) / floorWidth;
-
-                    int texX = static_cast<int>(u * (textureWidth - 1));
-                    int texY = static_cast<int>(v * (textureHeight - 1));
-                    int index = (texY * textureWidth + texX) * textureChannels;
-
-                    glColor3f(textureData[index] / 255.0, textureData[index + 1] / 255.0, textureData[index + 2] / 255.0);
+                    
+                    // Sample texture using the improved method
+                    Vector3D texColor = sampleTexture(u, v);
+                    glColor3f(texColor.x, texColor.y, texColor.z);
                 } else {
                     bool isWhite = (static_cast<int>((x + floorWidth / 2) / tileWidth) + static_cast<int>((y + floorWidth / 2) / tileWidth)) % 2 == 0;
                     glColor3f(isWhite ? 1.0 : 0.0, isWhite ? 1.0 : 0.0, isWhite ? 1.0 : 0.0);
@@ -462,7 +544,7 @@ public:
 
     ~Floor() {
         if (textureData) {
-            stbi_image_free(textureData);
+            delete[] textureData;
         }
     }
 
@@ -483,20 +565,17 @@ public:
 
         if (level == 0) return t;
 
-        // Determine floor color (checkerboard pattern)
+        // Determine floor color using improved texture sampling
         Vector3D intersectionPointColor;
         if (useTexture && textureData) {
+            // Calculate UV coordinates from intersection point
             double u = (intersectionPoint.x + floorWidth / 2) / floorWidth;
             double v = (intersectionPoint.y + floorWidth / 2) / floorWidth;
-
-            int texX = static_cast<int>(u * (textureWidth - 1));
-            int texY = static_cast<int>(v * (textureHeight - 1));
-            int index = (texY * textureWidth + texX) * textureChannels;
-
-            intersectionPointColor.x = textureData[index] / 255.0;
-            intersectionPointColor.y = textureData[index + 1] / 255.0;
-            intersectionPointColor.z = textureData[index + 2] / 255.0;
+            
+            // Use the improved sampleTexture method
+            intersectionPointColor = sampleTexture(u, v);
         } else {
+            // Checkerboard pattern
             bool isWhite = (static_cast<int>((intersectionPoint.x + floorWidth / 2) / tileWidth) + 
                            static_cast<int>((intersectionPoint.y + floorWidth / 2) / tileWidth)) % 2 == 0;
             intersectionPointColor.x = intersectionPointColor.y = intersectionPointColor.z = isWhite ? 1.0 : 0.0;
@@ -597,7 +676,7 @@ public:
         Object* nearestObject = nullptr;
 
         for (const auto& obj : objects) {
-            double t = obj->intersect(&reflectedRay, reflectedColor, 0);
+            double t = obj->intersect(&reflectedRay, reflectedColor, level + 1);
             if (t > 0 && t < tMin) {
                 tMin = t;
                 nearestObject = obj;
@@ -781,7 +860,7 @@ public:
         Object* nearestObject = nullptr;
 
         for (const auto& obj : objects) {
-            double t = obj->intersect(&reflectedRay, reflectedColor, level + 1);
+            double t = obj->intersect(&reflectedRay, reflectedColor, 0);
             if (t > 0 && t < tMin) {
                 tMin = t;
                 nearestObject = obj;
