@@ -1,4 +1,4 @@
-#include "2005XXX_classes.h"
+#include "2005063_classes.h"
 #include "bitmap_image.hpp"
 #include <iostream>
 #include <fstream>
@@ -11,16 +11,15 @@ using namespace std;
 vector<Object*> objects;
 vector<PointLight> pointLights;
 vector<SpotLight> spotLights;
-Floor* globalFloor = nullptr; // Global reference to floor for texture toggling
+Floor* globalFloor = nullptr;
 
-int recursionLevel; // Define recursionLevel in the main file
+int recursionLevel;
 
-// Camera variables - Free movement camera system
-Vector3D cameraPos(0, -500, 200);  // Camera position
-Vector3D cameraLookDir(0, 1, 0);   // Look direction (normalized)
-Vector3D cameraUp(0, 0, 1);        // Up direction
-Vector3D cameraRight(1, 0, 0);     // Right direction
-float cameraTilt = 0.0;             // Camera tilt angle
+Vector3D cameraPos(0, -500, 200);
+Vector3D cameraLookDir(0, 1, 0);
+Vector3D cameraUp(0, 0, 1);
+Vector3D cameraRight(1, 0, 0);
+float cameraTilt = 0.0;
 
 void loadData() {
     ifstream sceneFile("scene.txt");
@@ -31,17 +30,13 @@ void loadData() {
 
     int imageResolution;
     sceneFile >> recursionLevel >> imageResolution;
-    cout << "Recursion Level: " << recursionLevel << endl;
-    cout << "Image Resolution: " << imageResolution << endl;
 
     int numObjects;
     sceneFile >> numObjects;
-    cout << "Number of Objects: " << numObjects << endl;
 
     for (int i = 0; i < numObjects; i++) {
         string objectType;
         sceneFile >> objectType;
-        cout << "Object Type: " << objectType << endl;
 
         if (objectType == "sphere") {
             Vector3D center;
@@ -54,12 +49,6 @@ void loadData() {
             sceneFile >> color[0] >> color[1] >> color[2];
             sceneFile >> coEfficients[0] >> coEfficients[1] >> coEfficients[2] >> coEfficients[3];
             sceneFile >> shine;
-
-            cout << "  Center: (" << center.x << ", " << center.y << ", " << center.z << ")" << endl;
-            cout << "  Radius: " << radius << endl;
-            cout << "  Color: (" << color[0] << ", " << color[1] << ", " << color[2] << ")" << endl;
-            cout << "  Coefficients: (" << coEfficients[0] << ", " << coEfficients[1] << ", " << coEfficients[2] << ", " << coEfficients[3] << ")" << endl;
-            cout << "  Shine: " << shine << endl;
 
             Sphere* sphere = new Sphere(center, radius);
             sphere->setColor(color[0], color[1], color[2]);
@@ -77,13 +66,6 @@ void loadData() {
             sceneFile >> color[0] >> color[1] >> color[2];
             sceneFile >> coEfficients[0] >> coEfficients[1] >> coEfficients[2] >> coEfficients[3];
             sceneFile >> shine;
-
-            cout << "  Point 1: (" << p1.x << ", " << p1.y << ", " << p1.z << ")" << endl;
-            cout << "  Point 2: (" << p2.x << ", " << p2.y << ", " << p2.z << ")" << endl;
-            cout << "  Point 3: (" << p3.x << ", " << p3.y << ", " << p3.z << ")" << endl;
-            cout << "  Color: (" << color[0] << ", " << color[1] << ", " << color[2] << ")" << endl;
-            cout << "  Coefficients: (" << coEfficients[0] << ", " << coEfficients[1] << ", " << coEfficients[2] << ", " << coEfficients[3] << ")" << endl;
-            cout << "  Shine: " << shine << endl;
 
             Triangle* triangle = new Triangle(p1, p2, p3);
             triangle->setColor(color[0], color[1], color[2]);
@@ -104,13 +86,6 @@ void loadData() {
             sceneFile >> coEfficients[0] >> coEfficients[1] >> coEfficients[2] >> coEfficients[3];
             sceneFile >> shine;
 
-            cout << "  Coefficients: (" << A << ", " << B << ", " << C << ", " << D << ", " << E << ", " << F << ", " << G << ", " << H << ", " << I << ", " << J << ")" << endl;
-            cout << "  Cube Reference Point: (" << cubeReferencePoint.x << ", " << cubeReferencePoint.y << ", " << cubeReferencePoint.z << ")" << endl;
-            cout << "  Dimensions: (" << length << ", " << width << ", " << height << ")" << endl;
-            cout << "  Color: (" << color[0] << ", " << color[1] << ", " << color[2] << ")" << endl;
-            cout << "  Coefficients: (" << coEfficients[0] << ", " << coEfficients[1] << ", " << coEfficients[2] << ", " << coEfficients[3] << ")" << endl;
-            cout << "  Shine: " << shine << endl;
-
             General* general = new General(A, B, C, D, E, F, G, H, I, J, cubeReferencePoint, length, width, height);
             general->setColor(color[0], color[1], color[2]);
             general->setCoEfficients(coEfficients[0], coEfficients[1], coEfficients[2], coEfficients[3]);
@@ -121,7 +96,6 @@ void loadData() {
 
     int numPointLights;
     sceneFile >> numPointLights;
-    cout << "Number of Point Lights: " << numPointLights << endl;
 
     for (int i = 0; i < numPointLights; i++) {
         Vector3D position;
@@ -130,16 +104,12 @@ void loadData() {
         sceneFile >> position.x >> position.y >> position.z;
         sceneFile >> color[0] >> color[1] >> color[2];
 
-        cout << "  Position: (" << position.x << ", " << position.y << ", " << position.z << ")" << endl;
-        cout << "  Color: (" << color[0] << ", " << color[1] << ", " << color[2] << ")" << endl;
-
         PointLight pointLight(position, color[0], color[1], color[2]);
         pointLights.push_back(pointLight);
     }
 
     int numSpotLights;
     sceneFile >> numSpotLights;
-    cout << "Number of Spot Lights: " << numSpotLights << endl;
 
     for (int i = 0; i < numSpotLights; i++) {
         Vector3D position, direction;
@@ -150,63 +120,50 @@ void loadData() {
         sceneFile >> direction.x >> direction.y >> direction.z;
         sceneFile >> cutoffAngle;
 
-        cout << "  Position: (" << position.x << ", " << position.y << ", " << position.z << ")" << endl;
-        cout << "  Color: (" << color[0] << ", " << color[1] << ", " << color[2] << ")" << endl;
-        cout << "  Direction: (" << direction.x << ", " << direction.y << ", " << direction.z << ")" << endl;
-        cout << "  Cutoff Angle: " << cutoffAngle << endl;
-
         SpotLight spotLight(position, color[0], color[1], color[2], direction, cutoffAngle);
         spotLights.push_back(spotLight);
     }
 
     sceneFile.close();
     
-    // Add floor object
     Floor* floor = new Floor(1000, 20, "");
     floor->setColor(1.0, 1.0, 1.0);
     floor->setCoEfficients(0.4, 0.2, 0.2, 0.2);
     floor->setShine(1);
     objects.push_back(floor);
-    globalFloor = floor; // Set global floor reference
+    globalFloor = floor;
 }
 
 void capture() {
-    const int imageWidth = 1920;   // Increased from 768 to 1920
-    const int imageHeight = 1920;  // Increased from 768 to 1920
+    const int imageWidth = 1920;
+    const int imageHeight = 1920;
     bitmap_image image(imageWidth, imageHeight);
     image.clear();
 
-    // Use the SAME camera position and orientation as OpenGL display
     Vector3D eye = cameraPos;
     Vector3D target = cameraPos + cameraLookDir;
     
-    // Calculate camera coordinate system (same as OpenGL)
-    Vector3D l = cameraLookDir; // Already normalized look direction
-    Vector3D r = cameraRight;   // Already normalized right direction  
-    Vector3D u = cameraUp;      // Already normalized up direction
+    Vector3D l = cameraLookDir;
+    Vector3D r = cameraRight;   
+    Vector3D u = cameraUp;
 
-    // Calculate viewing frustum parameters (matching gluPerspective(70, 1, 0.1, 10000))
-    double fov = 70.0 * M_PI / 180.0; // 70 degrees FOV
-    double aspect = 1.0; // Square aspect ratio
-    double nearPlane = 1.0; // Distance to viewing plane
+    double fov = 70.0 * M_PI / 180.0;
+    double aspect = 1.0;
+    double nearPlane = 1.0;
     
     double halfHeight = nearPlane * tan(fov / 2.0);
     double halfWidth = halfHeight * aspect;
     
-    // Calculate the corners of the viewing plane
     Vector3D center = eye + l * nearPlane;
     Vector3D topLeft = center + u * halfHeight - r * halfWidth;
     
-    // Calculate pixel step sizes
     double pixelWidth = (2.0 * halfWidth) / imageWidth;
     double pixelHeight = (2.0 * halfHeight) / imageHeight;
 
     for (int i = 0; i < imageWidth; i++) {
         for (int j = 0; j < imageHeight; j++) {
-            // Calculate current pixel position on the viewing plane
             Vector3D pixelPos = topLeft + r * (i * pixelWidth) - u * (j * pixelHeight);
             
-            // Ray from eye through pixel
             Vector3D rayDir = pixelPos - eye;
             Ray ray(eye, rayDir);
 
@@ -214,7 +171,6 @@ void capture() {
             Object* nearestObject = nullptr;
             double pixelColor[3] = {0, 0, 0};
 
-            // Find nearest object
             for (Object* obj : objects) {
                 double t = obj->intersect(&ray, pixelColor, 0);
                 if (t > 0 && t < tMin) {
@@ -226,7 +182,6 @@ void capture() {
             if (nearestObject) {
                 nearestObject->intersect(&ray, pixelColor, 1);
                 
-                // Clamp color values to [0, 1]
                 pixelColor[0] = std::max(0.0, std::min(1.0, pixelColor[0]));
                 pixelColor[1] = std::max(0.0, std::min(1.0, pixelColor[1]));
                 pixelColor[2] = std::max(0.0, std::min(1.0, pixelColor[2]));
@@ -236,12 +191,12 @@ void capture() {
                     (unsigned char)(pixelColor[1] * 255), 
                     (unsigned char)(pixelColor[2] * 255));
             } else {
-                image.set_pixel(i, j, 0, 0, 0); // Background color
+                image.set_pixel(i, j, 0, 0, 0);
             }
         }
     }
 
-    static int imageCount = 11; // Start from Output_11.bmp
+    static int imageCount = 11;
     std::ostringstream filename;
     filename << "Output_" << imageCount++ << ".bmp";
     image.save_image(filename.str());
@@ -250,15 +205,12 @@ void capture() {
 
 void drawAxes() {
     glBegin(GL_LINES);
-    // X-axis
     glColor3f(1.0, 0.0, 0.0);
     glVertex3f(-1000, 0, 0);
     glVertex3f(1000, 0, 0);
-    // Y-axis
     glColor3f(0.0, 1.0, 0.0);
     glVertex3f(0, -1000, 0);
     glVertex3f(0, 1000, 0);
-    // Z-axis
     glColor3f(0.0, 0.0, 1.0);
     glVertex3f(0, 0, -1000);
     glVertex3f(0, 0, 1000);
@@ -286,7 +238,6 @@ void display() {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    // Set camera position using free-movement camera system
     Vector3D target = cameraPos + cameraLookDir;
     gluLookAt(cameraPos.x, cameraPos.y, cameraPos.z,
               target.x, target.y, target.z,
@@ -294,10 +245,8 @@ void display() {
 
     drawAxes();
 
-    // Draw light sources
     drawLightSources();
 
-    // Draw objects in the scene
     for (Object* obj : objects) {
         obj->draw();
     }
@@ -305,48 +254,39 @@ void display() {
     glutSwapBuffers();
 }
 
-// Helper function to update camera vectors after rotation (preserving tilt)
 void updateCameraVectorsWithTilt() {
-    // Normalize the look direction
     double length = sqrt(cameraLookDir.x * cameraLookDir.x + cameraLookDir.y * cameraLookDir.y + cameraLookDir.z * cameraLookDir.z);
     cameraLookDir.x /= length;
     cameraLookDir.y /= length;
     cameraLookDir.z /= length;
     
-    // Normalize right vector
     length = sqrt(cameraRight.x * cameraRight.x + cameraRight.y * cameraRight.y + cameraRight.z * cameraRight.z);
     cameraRight.x /= length;
     cameraRight.y /= length;
     cameraRight.z /= length;
     
-    // Normalize up vector
     length = sqrt(cameraUp.x * cameraUp.x + cameraUp.y * cameraUp.y + cameraUp.z * cameraUp.z);
     cameraUp.x /= length;
     cameraUp.y /= length;
     cameraUp.z /= length;
 }
 
-// Helper function to update camera vectors after rotation
 void updateCameraVectors() {
-    // Normalize the look direction
     double length = sqrt(cameraLookDir.x * cameraLookDir.x + cameraLookDir.y * cameraLookDir.y + cameraLookDir.z * cameraLookDir.z);
     cameraLookDir.x /= length;
     cameraLookDir.y /= length;
     cameraLookDir.z /= length;
     
-    // Calculate right vector = lookDir × worldUp
     Vector3D worldUp(0, 0, 1);
     cameraRight.x = cameraLookDir.y * worldUp.z - cameraLookDir.z * worldUp.y;
     cameraRight.y = cameraLookDir.z * worldUp.x - cameraLookDir.x * worldUp.z;
     cameraRight.z = cameraLookDir.x * worldUp.y - cameraLookDir.y * worldUp.x;
     
-    // Normalize right vector
     length = sqrt(cameraRight.x * cameraRight.x + cameraRight.y * cameraRight.y + cameraRight.z * cameraRight.z);
     cameraRight.x /= length;
     cameraRight.y /= length;
     cameraRight.z /= length;
     
-    // Calculate up vector = right × lookDir
     cameraUp.x = cameraRight.y * cameraLookDir.z - cameraRight.z * cameraLookDir.y;
     cameraUp.y = cameraRight.z * cameraLookDir.x - cameraRight.x * cameraLookDir.z;
     cameraUp.z = cameraRight.x * cameraLookDir.y - cameraRight.y * cameraLookDir.x;
@@ -356,7 +296,7 @@ void keyboardListener(unsigned char key, int x, int y) {
     const double ROTATE_SPEED = 0.1;
     
     switch (key) {
-        case '1': // Rotate/Look left
+        case '1':
             {
                 double cosAngle = cos(-ROTATE_SPEED);
                 double sinAngle = sin(-ROTATE_SPEED);
@@ -367,7 +307,7 @@ void keyboardListener(unsigned char key, int x, int y) {
                 updateCameraVectors();
             }
             break;
-        case '2': // Rotate/Look right
+        case '2':
             {
                 double cosAngle = cos(ROTATE_SPEED);
                 double sinAngle = sin(ROTATE_SPEED);
@@ -378,7 +318,7 @@ void keyboardListener(unsigned char key, int x, int y) {
                 updateCameraVectors();
             }
             break;
-        case '3': // Look up
+        case '3':
             {
                 Vector3D temp = cameraLookDir + cameraUp * ROTATE_SPEED;
                 double length = sqrt(temp.x * temp.x + temp.y * temp.y + temp.z * temp.z);
@@ -388,7 +328,7 @@ void keyboardListener(unsigned char key, int x, int y) {
                 updateCameraVectors();
             }
             break;
-        case '4': // Look down
+        case '4':
             {
                 Vector3D temp = cameraLookDir - cameraUp * ROTATE_SPEED;
                 double length = sqrt(temp.x * temp.x + temp.y * temp.y + temp.z * temp.z);
@@ -398,31 +338,29 @@ void keyboardListener(unsigned char key, int x, int y) {
                 updateCameraVectors();
             }
             break;
-        case '5':  // Tilt clockwise (roll right)
+        case '5':
             {
-                // Rotate around the look vector (roll)
                 Vector3D newUp = cameraUp * cos(-ROTATE_SPEED) + cameraRight * sin(-ROTATE_SPEED);
                 Vector3D newRight = cameraRight * cos(-ROTATE_SPEED) - cameraUp * sin(-ROTATE_SPEED);
                 cameraUp = newUp;
                 cameraRight = newRight;
-                updateCameraVectorsWithTilt(); // Use the tilt-preserving function
+                updateCameraVectorsWithTilt();
             }
             break;
-        case '6':  // Tilt counterclockwise (roll left)
+        case '6':
             {
-                // Rotate around the look vector (roll)
                 Vector3D newUp = cameraUp * cos(ROTATE_SPEED) + cameraRight * sin(ROTATE_SPEED);
                 Vector3D newRight = cameraRight * cos(ROTATE_SPEED) - cameraUp * sin(ROTATE_SPEED);
                 cameraUp = newUp;
                 cameraRight = newRight;
-                updateCameraVectorsWithTilt(); // Use the tilt-preserving function
+                updateCameraVectorsWithTilt();
             }
             break;
         case '0':
-            capture(); // Capture image
+            capture();
             break;
         case 'c':
-            capture(); // Alternative capture
+            capture();
             break;
         case 't':
             if (globalFloor) {
@@ -436,33 +374,26 @@ void keyboardListener(unsigned char key, int x, int y) {
     glutPostRedisplay();
 }
 
-// Special key handler for arrow keys and PageUp/PageDown - Fixed to match exact specifications
 void specialKeyListener(int key, int x, int y) {
     const double moveSpeed = 20.0;
     
     switch (key) {
         case GLUT_KEY_UP:
-            // Move forward (in look direction)
             cameraPos = cameraPos + cameraLookDir * moveSpeed;
             break;
         case GLUT_KEY_DOWN:
-            // Move backward (opposite look direction)
             cameraPos = cameraPos - cameraLookDir * moveSpeed;
             break;
         case GLUT_KEY_LEFT:
-            // Move left (opposite right direction)
             cameraPos = cameraPos - cameraRight * moveSpeed;
             break;
         case GLUT_KEY_RIGHT:
-            // Move right (in right direction)
             cameraPos = cameraPos + cameraRight * moveSpeed;
             break;
         case GLUT_KEY_PAGE_UP:
-            // Move up (increase Z coordinate)
             cameraPos.z += moveSpeed;
             break;
         case GLUT_KEY_PAGE_DOWN:
-            // Move down (decrease Z coordinate)
             cameraPos.z -= moveSpeed;
             break;
         default:
@@ -495,7 +426,6 @@ int main(int argc, char** argv) {
 
     glutMainLoop();
 
-    // Clean up dynamically allocated objects
     for (Object* obj : objects) {
         delete obj;
     }
